@@ -50,3 +50,28 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# custom
+## CMake
+*CMakeLists.txt.user
+*CMakeCache.txt
+*CMakeFiles
+*CMakeScripts
+*Testing
+*Makefile
+*cmake_install.cmake
+*install_manifest.txt
+*compile_commands.json
+*CTestTestfile.cmake
+*_deps
+*CMakeUserPresets.json
+
+## pico
+build/elf2uf2
+build/generated
+build/pico_extras
+build/pico-sdk
+build/pioasm
+build/*.bin
+build/*.dis
+build/*.uf2
