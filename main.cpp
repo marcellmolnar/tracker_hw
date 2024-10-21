@@ -20,6 +20,7 @@
 #include "ssd1306_i2c.h"
 #include "mpu6050_i2c.h"
 #include "neo6m.h"
+#include "sleep_control.h"
 
 #define LED_PIN 29
 
@@ -121,11 +122,8 @@ void init() {
     mpu6050_init();
 }
 
-int main() {
-
-    init();
-    gpio_put(LED_PIN, 0);
-
+void main_loop_all()
+{
     char text[240];
     sprintf(text, "A long time ago\n"
     "  on an OLED \n"
@@ -194,4 +192,32 @@ int main() {
         sleep_ms(200);
         gpio_put(LED_PIN, 0);
     }
+}
+
+static void sleep_callback(void)
+{
+}
+
+void main_loop_sleep()
+{
+    rpi_sleep_init();
+
+    bool pinState = false;
+    while (true)
+    {
+        rpi_sleep(&sleep_callback);
+
+        pinState = !pinState;
+        gpio_put(LED_PIN, pinState);
+    }
+}
+
+int main() {
+
+    init();
+    gpio_put(LED_PIN, 0);
+
+    main_loop_sleep();
+
+    return 0;
 }

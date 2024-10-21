@@ -16,6 +16,7 @@ add_executable(blink
         ssd1306_i2c.c
         mpu6050_i2c.c
         neo6m.cpp
+        sleep_control.c
         )
 
 # pull in common dependencies
@@ -24,7 +25,8 @@ target_link_libraries(blink
         hardware_i2c
         hardware_rtc
         hardware_sleep
-        hardware_clocks)
+        hardware_clocks
+        hardware_rosc)
 
 # create map/bin/hex file etc.
 pico_add_extra_outputs(blink)
