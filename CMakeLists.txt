@@ -16,7 +16,7 @@ add_executable(blink
         ssd1306_i2c.c
         mpu6050_i2c.c
         neo6m.cpp
-        sim800l.c
+        sim800l.cpp
         sleep_control.c
         )
 

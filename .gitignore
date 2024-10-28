@@ -52,6 +52,8 @@ Mkfile.old
 dkms.conf
 
 # custom
+secrets.h
+
 ## CMake
 *CMakeLists.txt.user
 *CMakeCache.txt

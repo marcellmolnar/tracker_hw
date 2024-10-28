@@ -1,5 +1,5 @@
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <string>
 
 #include "pico/stdlib.h"
 #include "pico/stdlib.h"
@@ -73,14 +73,12 @@ void on_gps_rx() {
     }
 }
 
-circ_bbuf_t circ_buff_sim800;
-uint32_t chrs_sim800 = 0;
-// RX interrupt handler
+SIM800L sim800l;
+
 void on_sim800_rx() {
-    chrs_sim800++;
     while (uart_is_readable(SIM800L_UART_ID)) {
         char c = uart_getc(SIM800L_UART_ID);
-        circ_bbuf_push(&circ_buff_sim800, c);
+        sim800l.processChar(c);
     }
 }
 
@@ -135,8 +133,6 @@ void init() {
 
     SSD1306_Init();
     //mpu6050_init();
-
-    sim800l_init();
 }
 
 void main_loop_all()
@@ -229,58 +225,30 @@ void main_loop_sleep()
 
 void main_loop_sim800()
 {
-    char resp[256];
-    int respSize = 0;
-    bool newResp = false;
-    int lastNewLine = 0;
-    char cc;
-    bool pinState = false;
+    sim800l.init();
 
-    //uart_puts(SIM800L_UART_ID, "AT CPIN=7859\r");
+    std::string s = sim800l.state == SIM_STATE::INVALID ? "invalid" : (
+        sim800l.state == SIM_STATE::READY ? "ready" : (
+        sim800l.state == SIM_STATE::FLAG ? "flag" : (
+        sim800l.state == SIM_STATE::ERROR ? "error" : "unknown")));
+    //showString(s.c_str());
+
+    //sim800l.at_send("AT CPIN=7859\r");
     sleep_ms(200);
 
-    uart_puts(SIM800L_UART_ID, "AT&F0\r");
-    sleep_ms(400);
     //sleep_ms(4000);
-    //uart_puts(SIM800L_UART_ID, "AT+CMINS=1\r");
+    //sim800l.at_send("AT+CMINS=1\r");
 
-    int pingCntr = 0;
+    bool pinState = false;
     while (true)
     {
-        while(0 == circ_bbuf_pop(&circ_buff_sim800, &cc))
+        /*
+        std::string resp = sim800l.processResponse(cc);
+        if (!resp.empty())
         {
-            resp[respSize] = cc;
-            if (respSize < 255)
-                respSize++;
-            if (respSize == 255)
-            {
-                resp[respSize] = '\0';
-                newResp = true;
-            }
-            if (cc=='\n' && respSize > 4 && resp[respSize-2] == '\r')
-            {
-                newResp = true;
-                resp[respSize-2] = '\0';
-                break;
-            }
+            //showString(resp.c_str());
         }
-        if (newResp)
-        {
-            int offset = 0;
-            for (int i = 0; i < 2; i++)
-            if (resp[i] == '\r' || resp[i] == '\n')
-                offset++;
-            showString(&resp[offset]);
-            respSize = 0;
-            newResp = false;
-        }
-
-        pingCntr++;
-        if (pingCntr == 3)
-        {
-            uart_puts(SIM800L_UART_ID, "AT+CPIN?\r");
-            pingCntr = 0;
-        }
+        */
 
         pinState = !pinState;
         gpio_put(LED_PIN, pinState);
