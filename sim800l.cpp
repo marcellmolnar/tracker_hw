@@ -3,37 +3,29 @@
 #include "secrets.h"
 #include "ssd1306_i2c.h"
 
+#include <algorithm>
+
 void SIM800L::init()
 {
+    at_send_and_await_response("AT+CPIN?\r", 5000);
+    std::string cpinSetCmd = std::string("AT+CPIN=") + SIM_PIN_CODE + "\r";
+    at_send_and_await_response(cpinSetCmd.c_str(), 5000);
+    at_send_and_await_response("AT+CPIN?\r", 5000);
+    return;
+
+
     // disable echo mode to save bits, command is stored anyway
-    //at_send("ATE0\r");
-    //sleep_ms(100);
-    //processResponse();
+    at_send_and_await_response("ATE0\r", 100);
 
     init_sim_pin();
 }
 
 void SIM800L::init_sim_pin()
 {
-    at_send("AT+CPIN?\r");
+    at_send_and_await_response("AT+CPIN?\r", 5000);
     sleep_ms(1000);
-    processResponse();
 
-    if (simCardState == SIM_CARD_STATE::INVALID)
-    {
-        at_send("AT+CPIN?\r");
-        // max response time for cpin command
-        sleep_ms(5000);
-        processResponse();
-    }
-
-    if (simCardState == SIM_CARD_STATE::INVALID)
-    {
-        state = SIM_STATE::FLAG;
-        return;
-    }
-    
-    if(simCardState == SIM_CARD_STATE::ERROR)
+    if (simCardState == SIM_CARD_STATE::INVALID || simCardState == SIM_CARD_STATE::ERROR)
     {
         state = SIM_STATE::ERROR;
         return;
@@ -48,35 +40,27 @@ void SIM800L::init_sim_pin()
     if (simCardState == SIM_CARD_STATE::WAITING_FOR_PIN)
     {
         std::string cpinSetCmd = std::string("AT+CPIN=") + SIM_PIN_CODE + "\r";
-        at_send(cpinSetCmd.c_str());
-        sleep_ms(100);
-        processResponse();
+        at_send_and_await_response(cpinSetCmd.c_str(), 5000);
 
+        at_send_and_await_response("AT+CPIN?\r", 5000);
         if (simCardState == SIM_CARD_STATE::WAITING_FOR_PIN)
         {
-            // max response time for cpin command
-            sleep_ms(5000);
-            processResponse();
-            if (simCardState == SIM_CARD_STATE::WAITING_FOR_PIN)
-            {
-                at_send(cpinSetCmd.c_str());
-                sleep_ms(5000);
-                processResponse();
+            // send again and hope
+            at_send_and_await_response(cpinSetCmd.c_str(), 5000);
 
-                if (simCardState == SIM_CARD_STATE::READY)
-                {
-                    state = SIM_STATE::READY;
-                    return;
-                }
-
-                // no chance
-                state = SIM_STATE::ERROR;
-                return;
-            }
-
+            at_send_and_await_response("AT+CPIN?\r", 5000);
             if (simCardState == SIM_CARD_STATE::READY)
             {
                 state = SIM_STATE::READY;
+                return;
+            }
+
+            // no chance
+            state = SIM_STATE::FLAG;
+            return;
+            if (simCardState == SIM_CARD_STATE::INVALID || simCardState == SIM_CARD_STATE::ERROR)
+            {
+                state = SIM_STATE::ERROR;
                 return;
             }
         }
@@ -110,13 +94,34 @@ void SIM800L::handleStateChange()
             simCardState = SIM_CARD_STATE::INVALID;
         }
     }
+
+    const bool isBatteryStatus = lastCommandSent.find("AT+CBC") != std::string::npos;
+    if (isBatteryStatus || lastCommandSent.find("AT+CSQ") != std::string::npos)
+    {
+        response.erase(std::remove_if(response.begin(), response.end(), [](char c) -> bool
+            {
+                return ('A' < c && c < 'Z') || ('a' < c && c < 'z') || c == '\r' || c == '\n';
+            }), response.end());
+        if (isBatteryStatus)
+            batteryStatus = response;
+        else
+            connectionStatus = response;
+    }
 }
 
-void SIM800L::at_send(const char* cmd)
+void SIM800L::at_send_and_await_response(const char* cmd, size_t timeout)
 {
     response.clear();
     uart_puts(SIM800L_UART_ID, cmd);
     lastCommandSent = cmd;
+    constexpr size_t sleepms = 50;
+    const size_t timeoutCnt = timeout / sleepms;
+    for (int i = 0; i < timeoutCnt; i++)
+    {
+        sleep_ms(sleepms);
+        if (!processResponse().empty())
+            break;
+    }
 }
 
 void SIM800L::processChar(char c)
@@ -126,7 +131,6 @@ void SIM800L::processChar(char c)
 
 std::string SIM800L::processResponse()
 {
-    showString(response.c_str());
     if (response.back() == '\n' && (response.find("OK\r\n") != std::string::npos
                   || response.find("CME ERROR") != std::string::npos
                   || response.find("CMS ERROR") != std::string::npos))
@@ -137,6 +141,7 @@ std::string SIM800L::processResponse()
             response.erase(0, 1);
 
         handleStateChange();
+        showString(response.c_str());
         return response;
     }
     return "";
@@ -166,6 +171,9 @@ void SIM800L::info()
     0...7 As RXQUAL values in the table in GSM 05.08 [20] subclause 7.2.4
     99 Not known or not detectable
     */
+    at_send_and_await_response("AT+CSQ\r", 1000);
+
+    //sleep_ms(1000);
     /*
     AT+CBC
     Response
@@ -182,6 +190,7 @@ void SIM800L::info()
     <bcl> Battery connection level: 1...100 battery has 1-100 percent of capacity remaining
     <voltage> Battery voltage(mV)
     */
+    //at_send_and_await_response("AT+CBC\r", 500);
 }
 
 void SIM800L::sleep()

@@ -231,13 +231,13 @@ void main_loop_sim800()
         sim800l.state == SIM_STATE::READY ? "ready" : (
         sim800l.state == SIM_STATE::FLAG ? "flag" : (
         sim800l.state == SIM_STATE::ERROR ? "error" : "unknown")));
-    //showString(s.c_str());
+    if (sim800l.state != SIM_STATE::READY)
+    {
+        //showString(s.c_str());
+        //return;
+    }
 
-    //sim800l.at_send("AT CPIN=7859\r");
-    sleep_ms(200);
-
-    //sleep_ms(4000);
-    //sim800l.at_send("AT+CMINS=1\r");
+    //sim800l.info();
 
     bool pinState = false;
     while (true)

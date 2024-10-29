@@ -28,7 +28,8 @@ class SIM800L {
 public:
     SIM800L() {}
     void init();
-    void at_send(const char* cmd);
+    void at_send_and_await_response(const char* cmd, size_t timeout);
+    
 
     void processChar(char c);
     std::string processResponse();
@@ -50,6 +51,9 @@ private:
 
 public:
     volatile SIM_STATE state = SIM_STATE::INVALID;
+
+    std::string batteryStatus;
+    std::string connectionStatus;
 
 private:
     std::string lastCommandSent;
